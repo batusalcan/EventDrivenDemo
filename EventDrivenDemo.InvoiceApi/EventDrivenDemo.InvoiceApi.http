@@ -1,0 +1,6 @@
+@EventDrivenDemo.InvoiceApi_HostAddress = http://localhost:5034
+
+GET {{EventDrivenDemo.InvoiceApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
