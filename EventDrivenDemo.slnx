@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="EventDrivenDemo.Api/EventDrivenDemo.Api.csproj" />
+  <Project Path="EventDrivenDemo.Shared/EventDrivenDemo.Shared.csproj" />
+</Solution>
