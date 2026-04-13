@@ -1,23 +1,26 @@
+using EventDrivenDemo.InvoiceApi.Messaging;
+using EventDrivenDemo.InvoiceApi.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+// In-memory invoice event log (singleton — shared between consumer and controller)
+builder.Services.AddSingleton<InvoiceEventLogStore>();
+
+// Kafka consumer background service — listens to order-events topic
+builder.Services.AddHostedService<InvoiceKafkaConsumer>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
 app.UseHttpsRedirection();
-
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.Run();
