@@ -17,4 +17,9 @@ public class EventLogStore
     }
 
     public IReadOnlyList<string> GetAll() => _entries.ToArray();
+
+    public void Clear()
+    {
+        while (_entries.TryDequeue(out _)) { }
+    }
 }
