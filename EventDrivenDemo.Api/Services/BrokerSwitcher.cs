@@ -2,6 +2,7 @@ using EventDrivenDemo.Api.Messaging.Kafka;
 using EventDrivenDemo.Api.Messaging.Stubs;
 using EventDrivenDemo.Shared.Enums;
 using EventDrivenDemo.Shared.Interfaces;
+using EventDrivenDemo.Shared.Models;
 
 namespace EventDrivenDemo.Api.Services;
 
@@ -32,11 +33,11 @@ public class BrokerSwitcher : IMessagePublisher
         }
     }
 
-    public Task PublishAsync<T>(string topicName, T message)
+    public Task PublishAsync<T>(string topicName, T message, MessageHeaders? headers = null)
     {
         lock (_lock)
         {
-            return _current.PublishAsync(topicName, message);
+            return _current.PublishAsync(topicName, message, headers);
         }
     }
 

@@ -29,14 +29,24 @@ public class OrdersController : ControllerBase
             Items = request.Items
         };
 
+        var customerTier = request.IsVip ? "VIP" : "Standard";
+        var headers = MessageHeaders.For("CustomerTier", customerTier);
+
         var topic = _configuration["Kafka:TopicName"] ?? "order-events";
 
-        _logger.LogInformation("Placing order for customer '{CustomerId}', Amount: {Amount}", orderEvent.CustomerId, orderEvent.Amount);
+        _logger.LogInformation(
+            "Placing order for customer '{CustomerId}' | Tier: {Tier} | Amount: {Amount}",
+            orderEvent.CustomerId, customerTier, orderEvent.Amount);
 
-        await _publisher.PublishAsync(topic, orderEvent);
+        await _publisher.PublishAsync(topic, orderEvent, headers);
 
-        return Ok(new { orderEvent.OrderId, Message = "Order placed and event published." });
+        return Ok(new
+        {
+            orderEvent.OrderId,
+            CustomerTier = customerTier,
+            Message = "Order placed and event published."
+        });
     }
 }
 
-public record PlaceOrderRequest(string CustomerId, decimal Amount, List<string> Items);
+public record PlaceOrderRequest(string CustomerId, decimal Amount, List<string> Items, bool IsVip = false);

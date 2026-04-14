@@ -1,6 +1,7 @@
 using Confluent.Kafka;
 using EventDrivenDemo.InvoiceApi.Services;
 using EventDrivenDemo.Shared.Models;
+using System.Text;
 using System.Text.Json;
 
 namespace EventDrivenDemo.InvoiceApi.Messaging;
@@ -49,16 +50,22 @@ public class InvoiceKafkaConsumer : BackgroundService
                 var result = consumer.Consume(stoppingToken);
                 var payload = result.Message.Value;
 
+                // Read CustomerTier header without deserializing the full payload
+                var customerTier = "Standard";
+                var tierHeader = result.Message.Headers.FirstOrDefault(h => h.Key == "CustomerTier");
+                if (tierHeader is not null)
+                    customerTier = Encoding.UTF8.GetString(tierHeader.GetValueBytes());
+
                 var order = JsonSerializer.Deserialize<OrderCreatedEvent>(payload);
                 if (order is null) continue;
 
                 var invoiceNumber = $"INV-{order.OrderId.ToString()[..8].ToUpper()}";
 
                 _logger.LogInformation(
-                    "[InvoiceApi] Invoice generated | Invoice#: {InvoiceNumber} | OrderId: {OrderId} | Customer: {CustomerId} | Amount: {Amount:C}",
-                    invoiceNumber, order.OrderId, order.CustomerId, order.Amount);
+                    "[InvoiceApi] Invoice generated | Invoice#: {InvoiceNumber} | OrderId: {OrderId} | Customer: {CustomerId} | Tier: {Tier} | Amount: {Amount:C}",
+                    invoiceNumber, order.OrderId, order.CustomerId, customerTier, order.Amount);
 
-                _eventLog.Add($"Invoice generated — {invoiceNumber} | Customer: {order.CustomerId} | Amount: {order.Amount:C} | Items: {string.Join(", ", order.Items)}");
+                _eventLog.Add($"Invoice generated — {invoiceNumber} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C} | Items: {string.Join(", ", order.Items)}");
             }
             catch (OperationCanceledException)
             {

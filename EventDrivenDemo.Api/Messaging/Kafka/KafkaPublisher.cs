@@ -1,5 +1,7 @@
 using Confluent.Kafka;
 using EventDrivenDemo.Shared.Interfaces;
+using EventDrivenDemo.Shared.Models;
+using System.Text;
 using System.Text.Json;
 
 namespace EventDrivenDemo.Api.Messaging.Kafka;
@@ -20,18 +22,29 @@ public class KafkaPublisher : IMessagePublisher, IDisposable
         _producer = new ProducerBuilder<string, string>(config).Build();
     }
 
-    public async Task PublishAsync<T>(string topicName, T message)
+    public async Task PublishAsync<T>(string topicName, T message, MessageHeaders? headers = null)
     {
         var payload = JsonSerializer.Serialize(message);
         var key = Guid.NewGuid().ToString();
 
         var kafkaMessage = new Message<string, string> { Key = key, Value = payload };
 
+        if (headers is not null)
+        {
+            kafkaMessage.Headers = new Headers();
+            foreach (var (headerKey, headerValue) in headers)
+                kafkaMessage.Headers.Add(headerKey, Encoding.UTF8.GetBytes(headerValue));
+        }
+
         var result = await _producer.ProduceAsync(topicName, kafkaMessage);
 
+        var headersSummary = headers is not null && headers.Count > 0
+            ? string.Join(", ", headers.Select(h => $"{h.Key}={h.Value}"))
+            : "none";
+
         _logger.LogInformation(
-            "[Kafka] Published to topic '{Topic}' | Partition: {Partition} | Offset: {Offset} | Payload: {Payload}",
-            result.Topic, result.Partition.Value, result.Offset.Value, payload);
+            "[Kafka] Published to topic '{Topic}' | Partition: {Partition} | Offset: {Offset} | Headers: [{Headers}] | Payload: {Payload}",
+            result.Topic, result.Partition.Value, result.Offset.Value, headersSummary, payload);
     }
 
     public void Dispose()

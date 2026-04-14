@@ -1,18 +1,17 @@
 using Confluent.Kafka;
-using EventDrivenDemo.Api.Services;
+using EventDrivenDemo.NotificationApi.Services;
 using EventDrivenDemo.Shared.Models;
-using System.Text;
 using System.Text.Json;
 
-namespace EventDrivenDemo.Api.Messaging.Kafka;
+namespace EventDrivenDemo.NotificationApi.Messaging;
 
-public class KafkaConsumer : BackgroundService
+public class NotificationKafkaConsumer : BackgroundService
 {
     private readonly IConfiguration _configuration;
-    private readonly ILogger<KafkaConsumer> _logger;
-    private readonly EventLogStore _eventLog;
+    private readonly ILogger<NotificationKafkaConsumer> _logger;
+    private readonly NotificationEventLogStore _eventLog;
 
-    public KafkaConsumer(IConfiguration configuration, ILogger<KafkaConsumer> logger, EventLogStore eventLog)
+    public NotificationKafkaConsumer(IConfiguration configuration, ILogger<NotificationKafkaConsumer> logger, NotificationEventLogStore eventLog)
     {
         _configuration = configuration;
         _logger = logger;
@@ -28,7 +27,7 @@ public class KafkaConsumer : BackgroundService
     {
         var bootstrapServers = _configuration["Kafka:BootstrapServers"] ?? "localhost:29092";
         var topic = _configuration["Kafka:TopicName"] ?? "order-events";
-        var groupId = _configuration["Kafka:ConsumerGroupId"] ?? "order-consumer-group";
+        var groupId = _configuration["Kafka:ConsumerGroupId"] ?? "notification-consumer-group";
 
         var config = new ConsumerConfig
         {
@@ -41,7 +40,7 @@ public class KafkaConsumer : BackgroundService
         using var consumer = new ConsumerBuilder<string, string>(config).Build();
         consumer.Subscribe(topic);
 
-        _logger.LogInformation("[Kafka] Consumer started. Listening on topic '{Topic}'...", topic);
+        _logger.LogInformation("[NotificationApi] Consumer started. Listening on topic '{Topic}'...", topic);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -54,17 +53,18 @@ public class KafkaConsumer : BackgroundService
                 var customerTier = "Standard";
                 var tierHeader = result.Message.Headers.FirstOrDefault(h => h.Key == "CustomerTier");
                 if (tierHeader is not null)
-                    customerTier = Encoding.UTF8.GetString(tierHeader.GetValueBytes());
-
-                _logger.LogInformation(
-                    "[Kafka] Received message | Topic: {Topic} | Partition: {Partition} | Offset: {Offset} | Tier: {Tier} | Payload: {Payload}",
-                    result.Topic, result.Partition.Value, result.Offset.Value, customerTier, payload);
+                    customerTier = System.Text.Encoding.UTF8.GetString(tierHeader.GetValueBytes());
 
                 var order = JsonSerializer.Deserialize<OrderCreatedEvent>(payload);
-                if (order is not null)
-                {
-                    _eventLog.Add($"[Kafka] OrderCreated received — OrderId: {order.OrderId} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C}");
-                }
+                if (order is null) continue;
+
+                var channel = customerTier == "VIP" ? "SMS + Email" : "Email";
+
+                _logger.LogInformation(
+                    "[NotificationApi] Notification sent | Channel: {Channel} | OrderId: {OrderId} | Customer: {CustomerId} | Tier: {Tier}",
+                    channel, order.OrderId, order.CustomerId, customerTier);
+
+                _eventLog.Add($"Notification sent via {channel} — OrderId: {order.OrderId} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C}");
             }
             catch (OperationCanceledException)
             {
@@ -72,11 +72,11 @@ public class KafkaConsumer : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[Kafka] Error while consuming message.");
+                _logger.LogError(ex, "[NotificationApi] Error while consuming message.");
             }
         }
 
         consumer.Close();
-        _logger.LogInformation("[Kafka] Consumer stopped.");
+        _logger.LogInformation("[NotificationApi] Consumer stopped.");
     }
 }

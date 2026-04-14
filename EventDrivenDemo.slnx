@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="EventDrivenDemo.Api/EventDrivenDemo.Api.csproj" />
   <Project Path="EventDrivenDemo.InvoiceApi/EventDrivenDemo.InvoiceApi.csproj" />
+  <Project Path="EventDrivenDemo.NotificationApi/EventDrivenDemo.NotificationApi.csproj" />
   <Project Path="EventDrivenDemo.Shared/EventDrivenDemo.Shared.csproj" />
 </Solution>
