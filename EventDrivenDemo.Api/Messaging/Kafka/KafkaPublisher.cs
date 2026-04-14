@@ -18,7 +18,12 @@ public class KafkaPublisher : IMessagePublisher, IDisposable
         var bootstrapServers = configuration["Kafka:BootstrapServers"]
             ?? throw new InvalidOperationException("Kafka:BootstrapServers is not configured.");
 
-        var config = new ProducerConfig { BootstrapServers = bootstrapServers };
+        var config = new ProducerConfig
+        {
+            BootstrapServers = bootstrapServers,
+            MessageTimeoutMs = 5000,      // fail fast if broker is unreachable
+            RequestTimeoutMs = 5000
+        };
         _producer = new ProducerBuilder<string, string>(config).Build();
     }
 
