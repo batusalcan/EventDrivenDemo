@@ -1,6 +1,8 @@
 using Confluent.Kafka;
+using EventDrivenDemo.InvoiceApi.Hubs;
 using EventDrivenDemo.InvoiceApi.Services;
 using EventDrivenDemo.Shared.Models;
+using Microsoft.AspNetCore.SignalR;
 using System.Text;
 using System.Text.Json;
 
@@ -11,12 +13,18 @@ public class InvoiceKafkaConsumer : BackgroundService
     private readonly IConfiguration _configuration;
     private readonly ILogger<InvoiceKafkaConsumer> _logger;
     private readonly InvoiceEventLogStore _eventLog;
+    private readonly IHubContext<EventHub> _hubContext;
 
-    public InvoiceKafkaConsumer(IConfiguration configuration, ILogger<InvoiceKafkaConsumer> logger, InvoiceEventLogStore eventLog)
+    public InvoiceKafkaConsumer(
+        IConfiguration configuration,
+        ILogger<InvoiceKafkaConsumer> logger,
+        InvoiceEventLogStore eventLog,
+        IHubContext<EventHub> hubContext)
     {
         _configuration = configuration;
         _logger = logger;
         _eventLog = eventLog;
+        _hubContext = hubContext;
     }
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -50,7 +58,6 @@ public class InvoiceKafkaConsumer : BackgroundService
                 var result = consumer.Consume(stoppingToken);
                 var payload = result.Message.Value;
 
-                // Read CustomerTier header without deserializing the full payload
                 var customerTier = "Standard";
                 var tierHeader = result.Message.Headers.FirstOrDefault(h => h.Key == "CustomerTier");
                 if (tierHeader is not null)
@@ -65,7 +72,10 @@ public class InvoiceKafkaConsumer : BackgroundService
                     "[InvoiceApi] Invoice generated | Invoice#: {InvoiceNumber} | OrderId: {OrderId} | Customer: {CustomerId} | Tier: {Tier} | Amount: {Amount:C}",
                     invoiceNumber, order.OrderId, order.CustomerId, customerTier, order.Amount);
 
-                _eventLog.Add($"Invoice generated — {invoiceNumber} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C} | Items: {string.Join(", ", order.Items)}");
+                var entry = $"[InvoiceApi] Invoice generated — {invoiceNumber} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C} | Items: {string.Join(", ", order.Items)}";
+
+                _eventLog.Add(entry);
+                _hubContext.Clients.All.SendAsync("ReceiveEvent", entry, stoppingToken);
             }
             catch (OperationCanceledException)
             {

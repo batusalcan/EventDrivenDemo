@@ -1,6 +1,8 @@
 using Confluent.Kafka;
+using EventDrivenDemo.Api.Hubs;
 using EventDrivenDemo.Api.Services;
 using EventDrivenDemo.Shared.Models;
+using Microsoft.AspNetCore.SignalR;
 using System.Text;
 using System.Text.Json;
 
@@ -11,12 +13,18 @@ public class KafkaConsumer : BackgroundService
     private readonly IConfiguration _configuration;
     private readonly ILogger<KafkaConsumer> _logger;
     private readonly EventLogStore _eventLog;
+    private readonly IHubContext<EventHub> _hubContext;
 
-    public KafkaConsumer(IConfiguration configuration, ILogger<KafkaConsumer> logger, EventLogStore eventLog)
+    public KafkaConsumer(
+        IConfiguration configuration,
+        ILogger<KafkaConsumer> logger,
+        EventLogStore eventLog,
+        IHubContext<EventHub> hubContext)
     {
         _configuration = configuration;
         _logger = logger;
         _eventLog = eventLog;
+        _hubContext = hubContext;
     }
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -50,7 +58,6 @@ public class KafkaConsumer : BackgroundService
                 var result = consumer.Consume(stoppingToken);
                 var payload = result.Message.Value;
 
-                // Read CustomerTier header without deserializing the full payload
                 var customerTier = "Standard";
                 var tierHeader = result.Message.Headers.FirstOrDefault(h => h.Key == "CustomerTier");
                 if (tierHeader is not null)
@@ -61,10 +68,12 @@ public class KafkaConsumer : BackgroundService
                     result.Topic, result.Partition.Value, result.Offset.Value, customerTier, payload);
 
                 var order = JsonSerializer.Deserialize<OrderCreatedEvent>(payload);
-                if (order is not null)
-                {
-                    _eventLog.Add($"[Kafka] OrderCreated received — OrderId: {order.OrderId} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C}");
-                }
+                if (order is null) continue;
+
+                var entry = $"[OrderApi] OrderCreated received — OrderId: {order.OrderId} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C}";
+
+                _eventLog.Add(entry);
+                _hubContext.Clients.All.SendAsync("ReceiveEvent", entry, stoppingToken);
             }
             catch (OperationCanceledException)
             {

@@ -1,6 +1,9 @@
 using Confluent.Kafka;
+using EventDrivenDemo.NotificationApi.Hubs;
 using EventDrivenDemo.NotificationApi.Services;
 using EventDrivenDemo.Shared.Models;
+using Microsoft.AspNetCore.SignalR;
+using System.Text;
 using System.Text.Json;
 
 namespace EventDrivenDemo.NotificationApi.Messaging;
@@ -10,12 +13,18 @@ public class NotificationKafkaConsumer : BackgroundService
     private readonly IConfiguration _configuration;
     private readonly ILogger<NotificationKafkaConsumer> _logger;
     private readonly NotificationEventLogStore _eventLog;
+    private readonly IHubContext<EventHub> _hubContext;
 
-    public NotificationKafkaConsumer(IConfiguration configuration, ILogger<NotificationKafkaConsumer> logger, NotificationEventLogStore eventLog)
+    public NotificationKafkaConsumer(
+        IConfiguration configuration,
+        ILogger<NotificationKafkaConsumer> logger,
+        NotificationEventLogStore eventLog,
+        IHubContext<EventHub> hubContext)
     {
         _configuration = configuration;
         _logger = logger;
         _eventLog = eventLog;
+        _hubContext = hubContext;
     }
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
@@ -49,11 +58,10 @@ public class NotificationKafkaConsumer : BackgroundService
                 var result = consumer.Consume(stoppingToken);
                 var payload = result.Message.Value;
 
-                // Read CustomerTier header without deserializing the full payload
                 var customerTier = "Standard";
                 var tierHeader = result.Message.Headers.FirstOrDefault(h => h.Key == "CustomerTier");
                 if (tierHeader is not null)
-                    customerTier = System.Text.Encoding.UTF8.GetString(tierHeader.GetValueBytes());
+                    customerTier = Encoding.UTF8.GetString(tierHeader.GetValueBytes());
 
                 var order = JsonSerializer.Deserialize<OrderCreatedEvent>(payload);
                 if (order is null) continue;
@@ -64,7 +72,10 @@ public class NotificationKafkaConsumer : BackgroundService
                     "[NotificationApi] Notification sent | Channel: {Channel} | OrderId: {OrderId} | Customer: {CustomerId} | Tier: {Tier}",
                     channel, order.OrderId, order.CustomerId, customerTier);
 
-                _eventLog.Add($"Notification sent via {channel} — OrderId: {order.OrderId} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C}");
+                var entry = $"[NotificationApi] Notification sent via {channel} — OrderId: {order.OrderId} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C}";
+
+                _eventLog.Add(entry);
+                _hubContext.Clients.All.SendAsync("ReceiveEvent", entry, stoppingToken);
             }
             catch (OperationCanceledException)
             {
