@@ -1,6 +1,8 @@
 using EventDrivenDemo.InvoiceApi.Hubs;
 using EventDrivenDemo.InvoiceApi.Messaging;
 using EventDrivenDemo.InvoiceApi.Services;
+using EventDrivenDemo.Shared.Enums;
+using EventDrivenDemo.Shared.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,15 +25,23 @@ builder.Services.AddSignalR();
 // In-memory invoice event log (singleton — shared between consumer and controller)
 builder.Services.AddSingleton<InvoiceEventLogStore>();
 
-// Kafka consumer background service — listens to order-events topic
-builder.Services.AddHostedService<InvoiceKafkaConsumer>();
+// Controls whether the invoice consumer is paused (fault tolerance demo)
+builder.Services.AddSingleton<ConsumerControlState>();
+
+// Active broker state — read initial value from config, can be changed at runtime
+// via POST /api/system/switch-broker without a restart.
+var initialBroker = Enum.Parse<BrokerType>(
+    builder.Configuration["ActiveBroker"] ?? "Kafka", ignoreCase: true);
+builder.Services.AddSingleton(new ActiveBrokerState(initialBroker));
+
+// Single consumer router — watches ActiveBrokerState and hot-swaps the active
+// consume loop when the broker changes. No restart required.
+builder.Services.AddHostedService<InvoiceConsumerRouter>();
 
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
-{
     app.MapOpenApi();
-}
 
 if (app.Environment.IsDevelopment())
     app.UseHttpsRedirection();

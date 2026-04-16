@@ -1,15 +1,9 @@
 import { useEffect, useRef } from 'react';
 
-const SOURCE_COLORS = {
-  '[OrderApi]':       '#60a5fa',
-  '[InvoiceApi]':     '#34d399',
-  '[NotificationApi]':'#f59e0b',
-};
-
 function colorize(entry) {
-  for (const [key, color] of Object.entries(SOURCE_COLORS)) {
-    if (entry.includes(key)) return color;
-  }
+  if (entry.includes('[OrderApi'))        return '#60a5fa';
+  if (entry.includes('[InvoiceApi'))      return '#34d399';
+  if (entry.includes('[NotificationApi')) return '#f59e0b';
   return '#94a3b8';
 }
 

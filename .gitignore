@@ -492,3 +492,6 @@ CLAUDE.md
 *.suo
 .idea/
 .vscode/
+
+**/appsettings.json
+**/appsettings.Development.json

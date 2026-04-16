@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import BrokerSelector from './components/BrokerSelector';
+import DemoControls from './components/DemoControls';
 import EventMonitor from './components/EventMonitor';
 import OrderForm from './components/OrderForm';
 import { getActiveBroker } from './services/api';
@@ -45,6 +46,8 @@ export default function App() {
           <BrokerSelector activeBroker={activeBroker} onSwitch={setActiveBroker} />
           <OrderForm activeBroker={activeBroker} />
         </div>
+
+        <DemoControls />
 
         <EventMonitor
           events={events}

@@ -171,6 +171,62 @@ body {
 .console::-webkit-scrollbar-track { background: transparent; }
 .console::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
 
+/* ── Demo Controls ── */
+.demo-scenarios { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.scenario-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  background: #0f1117;
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+}
+
+.scenario-info { display: flex; flex-direction: column; gap: 0.3rem; flex: 1; }
+.scenario-title { font-size: 0.85rem; font-weight: 600; color: #f1f5f9; }
+.scenario-desc  { font-size: 0.75rem; color: #64748b; line-height: 1.5; }
+
+.consumer-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-top: 0.2rem;
+}
+.consumer-status--running { color: #34d399; }
+.consumer-status--paused  { color: #f59e0b; }
+
+.demo-btn {
+  flex-shrink: 0;
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+.demo-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.demo-btn--pause  { background: #7c3aed; color: #fff; }
+.demo-btn--pause:hover:not(:disabled)  { opacity: 0.85; }
+.demo-btn--resume { background: #059669; color: #fff; }
+.demo-btn--resume:hover:not(:disabled) { opacity: 0.85; }
+
+.demo-cmd {
+  flex-shrink: 0;
+  background: #0a0d14;
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  padding: 0.45rem 0.85rem;
+  font-family: 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 0.75rem;
+  color: #34d399;
+  white-space: nowrap;
+}
+
 /* ── Responsive ── */
 @media (max-width: 768px) {
   .top-row { grid-template-columns: 1fr; }
