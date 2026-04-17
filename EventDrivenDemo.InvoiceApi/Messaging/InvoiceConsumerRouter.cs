@@ -8,8 +8,8 @@ using EventDrivenDemo.InvoiceApi.Services;
 using EventDrivenDemo.Shared.Enums;
 using EventDrivenDemo.Shared.Models;
 using EventDrivenDemo.Shared.Services;
+using Google.Cloud.PubSub.V1;
 using Microsoft.AspNetCore.SignalR;
-using System.Text;
 using System.Text.Json;
 
 
@@ -81,14 +81,18 @@ public class InvoiceConsumerRouter : BackgroundService
                         await RunSqsConsumerAsync(restartCts.Token);
                         break;
                     case BrokerType.Gcp:
-                        _logger.LogInformation("[InvoiceConsumerRouter] GCP Pub/Sub not yet implemented. Waiting for broker change...");
-                        await Task.Delay(Timeout.Infinite, restartCts.Token);
+                        await RunGcpConsumerAsync(restartCts.Token);
                         break;
                 }
             }
             catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
             {
                 _logger.LogInformation("[InvoiceConsumerRouter] Consumer interrupted (broker change or pause). Restarting...");
+            }
+            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+            {
+                _logger.LogError(ex, "[InvoiceConsumerRouter] Consumer error on broker {Broker}. Retrying in 10s...", currentBroker);
+                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
             }
         }
     }
@@ -134,7 +138,7 @@ public class InvoiceConsumerRouter : BackgroundService
                 var customerTier = "Standard";
                 var tierHeader = result.Message.Headers.FirstOrDefault(h => h.Key == "CustomerTier");
                 if (tierHeader is not null)
-                    customerTier = Encoding.UTF8.GetString(tierHeader.GetValueBytes());
+                    customerTier = System.Text.Encoding.UTF8.GetString(tierHeader.GetValueBytes());
 
                 var order = JsonSerializer.Deserialize<OrderCreatedEvent>(payload);
                 if (order is null) continue;
@@ -159,6 +163,70 @@ public class InvoiceConsumerRouter : BackgroundService
 
     private Task RunKafkaConsumerAsync(CancellationToken token)
         => Task.Run(() => RunKafkaConsumer(token), token);
+
+    // ── GCP Pub/Sub ────────────────────────────────────────────────────────
+    // GCP uses an event-driven handler model: the SDK calls our handler for each message
+    // and we return Reply.Ack (processed) or Reply.Nack (retry). This is architecturally
+    // different from Kafka's offset-tracking loop and AWS's explicit DeleteMessage polling.
+
+    private async Task RunGcpConsumerAsync(CancellationToken token)
+    {
+        var projectId       = _configuration["Gcp:ProjectId"]             ?? throw new InvalidOperationException("Gcp:ProjectId is not configured.");
+        var subscriptionId  = _configuration["Gcp:InvoiceSubscriptionId"] ?? throw new InvalidOperationException("Gcp:InvoiceSubscriptionId is not configured.");
+        var credentialsPath = _configuration["Gcp:CredentialsPath"]       ?? throw new InvalidOperationException("Gcp:CredentialsPath is not configured.");
+
+        var subscriptionName = SubscriptionName.FromProjectSubscription(projectId, subscriptionId);
+
+        var subscriberClient = await new SubscriberClientBuilder
+        {
+            SubscriptionName = subscriptionName,
+            CredentialsPath  = credentialsPath.Trim()
+        }.BuildAsync(token);
+
+        _logger.LogInformation("[InvoiceApi/GCP] Pub/Sub subscriber started. Listening on subscription '{Sub}'...", subscriptionId);
+
+        // When the cancellation token fires (broker change or pause), stop the subscriber.
+        // StopAsync causes StartAsync below to complete its returned Task.
+        using var _ = token.Register(() => subscriberClient.StopAsync(CancellationToken.None));
+
+        // StartAsync is event-driven: the SDK calls our handler for each message.
+        // Returning Reply.Ack removes the message from the subscription.
+        // Returning Reply.Nack causes the broker to redeliver it after the ack deadline.
+        await subscriberClient.StartAsync(async (message, ct) =>
+        {
+            try
+            {
+                var payload      = message.Data.ToStringUtf8();
+                var customerTier = message.Attributes.TryGetValue("CustomerTier", out var tier) ? tier : "Standard";
+
+                var order = JsonSerializer.Deserialize<OrderCreatedEvent>(payload);
+                if (order is null)
+                {
+                    _logger.LogWarning("[InvoiceApi/GCP] Could not deserialize message {MessageId}. Acking to avoid poison.", message.MessageId);
+                    return SubscriberClient.Reply.Ack;
+                }
+
+                var invoiceNumber = $"INV-{order.OrderId.ToString()[..8].ToUpper()}";
+
+                _logger.LogInformation(
+                    "[InvoiceApi/GCP] Invoice generated | Invoice#: {InvoiceNumber} | Customer: {CustomerId} | Tier: {Tier} | Amount: {Amount:C}",
+                    invoiceNumber, order.CustomerId, customerTier, order.Amount);
+
+                var entry = $"[InvoiceApi/GCP] Invoice generated — {invoiceNumber} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C} | Items: {string.Join(", ", order.Items)}";
+                _eventLog.Add(entry);
+                await _hubContext.Clients.All.SendAsync("ReceiveEvent", entry, ct);
+
+                return SubscriberClient.Reply.Ack;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[InvoiceApi/GCP] Error processing message {MessageId}. Nacking for redelivery.", message.MessageId);
+                return SubscriberClient.Reply.Nack;
+            }
+        });
+
+        _logger.LogInformation("[InvoiceApi/GCP] Pub/Sub subscriber stopped.");
+    }
 
     // ── AWS SQS ────────────────────────────────────────────────────────────
 

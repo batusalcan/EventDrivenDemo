@@ -41,10 +41,23 @@ services:
       - "5263:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      ActiveBroker: Kafka
       Kafka__BootstrapServers: kafka:9092
       Kafka__TopicName: order-events
       Kafka__ConsumerGroupId: order-consumer-group
-      ActiveBroker: Kafka
+      Aws__Region: eu-central-1
+      Aws__TopicArn: arn:aws:sns:eu-central-1:921276052015:order-events
+      Aws__InvoiceQueueUrl: https://sqs.eu-central-1.amazonaws.com/921276052015/order-events-invoice
+      Aws__NotificationQueueUrl: https://sqs.eu-central-1.amazonaws.com/921276052015/order-events-notification
+      Aws__AccessKeyId: AKIA5NACU6IXUMPQ2KNU
+      Aws__SecretAccessKey: 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
+      Gcp__ProjectId: event-driven-demo-493520
+      Gcp__TopicId: order-events
+      Gcp__InvoiceSubscriptionId: order-events-invoice-sub
+      Gcp__NotificationSubscriptionId: events-notification-sub
+      Gcp__CredentialsPath: /app/gcp-credentials.json
+    volumes:
+      - ./event-driven-demo-493520-86087684bc5f.json:/app/gcp-credentials.json:ro
     depends_on:
       kafka:
         condition: service_healthy
@@ -57,9 +70,23 @@ services:
       - "5034:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      ActiveBroker: Kafka
       Kafka__BootstrapServers: kafka:9092
       Kafka__TopicName: order-events
       Kafka__ConsumerGroupId: invoice-consumer-group
+      Aws__Region: eu-central-1
+      Aws__TopicArn: arn:aws:sns:eu-central-1:921276052015:order-events
+      Aws__InvoiceQueueUrl: https://sqs.eu-central-1.amazonaws.com/921276052015/order-events-invoice
+      Aws__NotificationQueueUrl: https://sqs.eu-central-1.amazonaws.com/921276052015/order-events-notification
+      Aws__AccessKeyId: AKIA5NACU6IXUMPQ2KNU
+      Aws__SecretAccessKey: 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
+      Gcp__ProjectId: event-driven-demo-493520
+      Gcp__TopicId: order-events
+      Gcp__InvoiceSubscriptionId: order-events-invoice-sub
+      Gcp__NotificationSubscriptionId: events-notification-sub
+      Gcp__CredentialsPath: /app/gcp-credentials.json
+    volumes:
+      - ./event-driven-demo-493520-86087684bc5f.json:/app/gcp-credentials.json:ro
     depends_on:
       kafka:
         condition: service_healthy
@@ -72,9 +99,23 @@ services:
       - "5059:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
+      ActiveBroker: Kafka
       Kafka__BootstrapServers: kafka:9092
       Kafka__TopicName: order-events
       Kafka__ConsumerGroupId: notification-consumer-group
+      Aws__Region: eu-central-1
+      Aws__TopicArn: arn:aws:sns:eu-central-1:921276052015:order-events
+      Aws__InvoiceQueueUrl: https://sqs.eu-central-1.amazonaws.com/921276052015/order-events-invoice
+      Aws__NotificationQueueUrl: https://sqs.eu-central-1.amazonaws.com/921276052015/order-events-notification
+      Aws__AccessKeyId: AKIA5NACU6IXUMPQ2KNU
+      Aws__SecretAccessKey: 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
+      Gcp__ProjectId: event-driven-demo-493520
+      Gcp__TopicId: order-events
+      Gcp__InvoiceSubscriptionId: order-events-invoice-sub
+      Gcp__NotificationSubscriptionId: events-notification-sub
+      Gcp__CredentialsPath: /app/gcp-credentials.json
+    volumes:
+      - ./event-driven-demo-493520-86087684bc5f.json:/app/gcp-credentials.json:ro
     depends_on:
       kafka:
         condition: service_healthy

@@ -1,6 +1,6 @@
 using EventDrivenDemo.Api.Messaging.Aws;
+using EventDrivenDemo.Api.Messaging.Gcp;
 using EventDrivenDemo.Api.Messaging.Kafka;
-using EventDrivenDemo.Api.Messaging.Stubs;
 using EventDrivenDemo.Shared.Enums;
 using EventDrivenDemo.Shared.Interfaces;
 using EventDrivenDemo.Shared.Models;
@@ -47,7 +47,7 @@ public class BrokerSwitcher : IMessagePublisher
         {
             BrokerType.Kafka => new KafkaPublisher(configuration, loggerFactory.CreateLogger<KafkaPublisher>()),
             BrokerType.Aws   => new AwsSnsPublisher(configuration, loggerFactory.CreateLogger<AwsSnsPublisher>()),
-            BrokerType.Gcp   => new GcpPublisherStub(loggerFactory.CreateLogger<GcpPublisherStub>()),
+            BrokerType.Gcp   => new GcpPublisher(configuration, loggerFactory.CreateLogger<GcpPublisher>()),
             _ => throw new ArgumentOutOfRangeException(nameof(brokerType))
         };
 }
