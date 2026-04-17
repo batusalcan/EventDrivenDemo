@@ -49,15 +49,15 @@ services:
       Aws__TopicArn: arn:aws:sns:eu-central-1:921276052015:order-events
       Aws__InvoiceQueueUrl: https://sqs.eu-central-1.amazonaws.com/921276052015/order-events-invoice
       Aws__NotificationQueueUrl: https://sqs.eu-central-1.amazonaws.com/921276052015/order-events-notification
-      Aws__AccessKeyId: AKIA5NACU6IXUMPQ2KNU
-      Aws__SecretAccessKey: 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
+      Aws__AccessKeyId: ${AWS_ACCESS_KEY_ID}
+      Aws__SecretAccessKey: ${AWS_SECRET_ACCESS_KEY}
       Gcp__ProjectId: event-driven-demo-493520
       Gcp__TopicId: order-events
       Gcp__InvoiceSubscriptionId: order-events-invoice-sub
       Gcp__NotificationSubscriptionId: events-notification-sub
       Gcp__CredentialsPath: /app/gcp-credentials.json
     volumes:
-      - ./event-driven-demo-493520-86087684bc5f.json:/app/gcp-credentials.json:ro
+      - ${GCP_CREDENTIALS_PATH}:/app/gcp-credentials.json:ro
     depends_on:
       kafka:
         condition: service_healthy
@@ -78,15 +78,15 @@ services:
       Aws__TopicArn: arn:aws:sns:eu-central-1:921276052015:order-events
       Aws__InvoiceQueueUrl: https://sqs.eu-central-1.amazonaws.com/921276052015/order-events-invoice
       Aws__NotificationQueueUrl: https://sqs.eu-central-1.amazonaws.com/921276052015/order-events-notification
-      Aws__AccessKeyId: AKIA5NACU6IXUMPQ2KNU
-      Aws__SecretAccessKey: 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
+      Aws__AccessKeyId: ${AWS_ACCESS_KEY_ID}
+      Aws__SecretAccessKey: ${AWS_SECRET_ACCESS_KEY}
       Gcp__ProjectId: event-driven-demo-493520
       Gcp__TopicId: order-events
       Gcp__InvoiceSubscriptionId: order-events-invoice-sub
       Gcp__NotificationSubscriptionId: events-notification-sub
       Gcp__CredentialsPath: /app/gcp-credentials.json
     volumes:
-      - ./event-driven-demo-493520-86087684bc5f.json:/app/gcp-credentials.json:ro
+      - ${GCP_CREDENTIALS_PATH}:/app/gcp-credentials.json:ro
     depends_on:
       kafka:
         condition: service_healthy
@@ -107,15 +107,15 @@ services:
       Aws__TopicArn: arn:aws:sns:eu-central-1:921276052015:order-events
       Aws__InvoiceQueueUrl: https://sqs.eu-central-1.amazonaws.com/921276052015/order-events-invoice
       Aws__NotificationQueueUrl: https://sqs.eu-central-1.amazonaws.com/921276052015/order-events-notification
-      Aws__AccessKeyId: AKIA5NACU6IXUMPQ2KNU
-      Aws__SecretAccessKey: 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
+      Aws__AccessKeyId: ${AWS_ACCESS_KEY_ID}
+      Aws__SecretAccessKey: ${AWS_SECRET_ACCESS_KEY}
       Gcp__ProjectId: event-driven-demo-493520
       Gcp__TopicId: order-events
       Gcp__InvoiceSubscriptionId: order-events-invoice-sub
       Gcp__NotificationSubscriptionId: events-notification-sub
       Gcp__CredentialsPath: /app/gcp-credentials.json
     volumes:
-      - ./event-driven-demo-493520-86087684bc5f.json:/app/gcp-credentials.json:ro
+      - ${GCP_CREDENTIALS_PATH}:/app/gcp-credentials.json:ro
     depends_on:
       kafka:
         condition: service_healthy
