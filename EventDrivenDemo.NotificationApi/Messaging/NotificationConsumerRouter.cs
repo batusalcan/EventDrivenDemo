@@ -26,6 +26,7 @@ public class NotificationConsumerRouter : BackgroundService
     private readonly ILogger<NotificationConsumerRouter> _logger;
     private readonly NotificationEventLogStore _eventLog;
     private readonly IHubContext<EventHub> _hubContext;
+    private readonly string _instanceId;
 
     public NotificationConsumerRouter(
         ActiveBrokerState brokerState,
@@ -39,6 +40,7 @@ public class NotificationConsumerRouter : BackgroundService
         _logger = logger;
         _eventLog = eventLog;
         _hubContext = hubContext;
+        _instanceId = Environment.MachineName;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -131,7 +133,7 @@ public class NotificationConsumerRouter : BackgroundService
                     "[NotificationApi/Kafka] Notification sent | Channel: {Channel} | OrderId: {OrderId} | Customer: {CustomerId} | Tier: {Tier}",
                     channel, order.OrderId, order.CustomerId, customerTier);
 
-                var entry = $"[NotificationApi/Kafka] Notification sent via {channel} — OrderId: {order.OrderId} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C}";
+                var entry = $"[NotificationApi-{_instanceId}/Kafka] Notification sent via {channel} — OrderId: {order.OrderId} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C}";
                 _eventLog.Add(entry);
                 _hubContext.Clients.All.SendAsync("ReceiveEvent", entry, token);
             }
@@ -194,7 +196,7 @@ public class NotificationConsumerRouter : BackgroundService
                     "[NotificationApi/GCP] Notification sent | Channel: {Channel} | OrderId: {OrderId} | Customer: {CustomerId} | Tier: {Tier}",
                     channel, order.OrderId, order.CustomerId, customerTier);
 
-                var entry = $"[NotificationApi/GCP] Notification sent via {channel} — OrderId: {order.OrderId} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C}";
+                var entry = $"[NotificationApi-{_instanceId}/GCP] Notification sent via {channel} — OrderId: {order.OrderId} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C}";
                 _eventLog.Add(entry);
                 await _hubContext.Clients.All.SendAsync("ReceiveEvent", entry, ct);
 
@@ -271,7 +273,7 @@ public class NotificationConsumerRouter : BackgroundService
                 "[NotificationApi/AWS] Notification sent | Channel: {Channel} | OrderId: {OrderId} | Customer: {CustomerId} | Tier: {Tier}",
                 channel, order.OrderId, order.CustomerId, customerTier);
 
-            var entry = $"[NotificationApi/AWS] Notification sent via {channel} — OrderId: {order.OrderId} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C}";
+            var entry = $"[NotificationApi-{_instanceId}/AWS] Notification sent via {channel} — OrderId: {order.OrderId} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C}";
             _eventLog.Add(entry);
             await _hubContext.Clients.All.SendAsync("ReceiveEvent", entry, token);
 

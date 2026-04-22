@@ -28,6 +28,7 @@ public class InvoiceConsumerRouter : BackgroundService
     private readonly ILogger<InvoiceConsumerRouter> _logger;
     private readonly InvoiceEventLogStore _eventLog;
     private readonly IHubContext<EventHub> _hubContext;
+    private readonly string _instanceId;
 
     public InvoiceConsumerRouter(
         ActiveBrokerState brokerState,
@@ -43,6 +44,7 @@ public class InvoiceConsumerRouter : BackgroundService
         _logger = logger;
         _eventLog = eventLog;
         _hubContext = hubContext;
+        _instanceId = Environment.MachineName;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -149,7 +151,7 @@ public class InvoiceConsumerRouter : BackgroundService
                     "[InvoiceApi/Kafka] Invoice generated | Invoice#: {InvoiceNumber} | Customer: {CustomerId} | Tier: {Tier} | Amount: {Amount:C}",
                     invoiceNumber, order.CustomerId, customerTier, order.Amount);
 
-                var entry = $"[InvoiceApi/Kafka] Invoice generated — {invoiceNumber} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C} | Items: {string.Join(", ", order.Items)}";
+                var entry = $"[InvoiceApi-{_instanceId}/Kafka] Invoice generated — {invoiceNumber} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C} | Items: {string.Join(", ", order.Items)}";
                 _eventLog.Add(entry);
                 _hubContext.Clients.All.SendAsync("ReceiveEvent", entry, token);
             }
@@ -212,7 +214,7 @@ public class InvoiceConsumerRouter : BackgroundService
                     "[InvoiceApi/GCP] Invoice generated | Invoice#: {InvoiceNumber} | Customer: {CustomerId} | Tier: {Tier} | Amount: {Amount:C}",
                     invoiceNumber, order.CustomerId, customerTier, order.Amount);
 
-                var entry = $"[InvoiceApi/GCP] Invoice generated — {invoiceNumber} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C} | Items: {string.Join(", ", order.Items)}";
+                var entry = $"[InvoiceApi-{_instanceId}/GCP] Invoice generated — {invoiceNumber} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C} | Items: {string.Join(", ", order.Items)}";
                 _eventLog.Add(entry);
                 await _hubContext.Clients.All.SendAsync("ReceiveEvent", entry, ct);
 
@@ -289,7 +291,7 @@ public class InvoiceConsumerRouter : BackgroundService
                 "[InvoiceApi/AWS] Invoice generated | Invoice#: {InvoiceNumber} | Customer: {CustomerId} | Tier: {Tier} | Amount: {Amount:C}",
                 invoiceNumber, order.CustomerId, customerTier, order.Amount);
 
-            var entry = $"[InvoiceApi/AWS] Invoice generated — {invoiceNumber} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C} | Items: {string.Join(", ", order.Items)}";
+            var entry = $"[InvoiceApi-{_instanceId}/AWS] Invoice generated — {invoiceNumber} | Customer: {order.CustomerId} | Tier: {customerTier} | Amount: {order.Amount:C} | Items: {string.Join(", ", order.Items)}";
             _eventLog.Add(entry);
             await _hubContext.Clients.All.SendAsync("ReceiveEvent", entry, token);
 
