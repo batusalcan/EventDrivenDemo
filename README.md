@@ -137,9 +137,10 @@ EventDrivenDemo/
 │   │   ├── Kafka/
 │   │   │   ├── KafkaPublisher.cs   # Produces messages to Kafka topic
 │   │   │   └── KafkaConsumer.cs    # Consumes own echo (for SignalR logging)
-│   │   └── Stubs/
-│   │       ├── AwsPublisherStub.cs # Placeholder — logs instead of publishing
-│   │       └── GcpPublisherStub.cs # Placeholder — logs instead of publishing
+│   │   ├── Aws/
+│   │   │   └── AwsSnsPublisher.cs  # Publishes to AWS SNS with message attributes
+│   │   └── Gcp/
+│   │       └── GcpPublisher.cs     # Publishes to GCP Pub/Sub with message attributes
 │   ├── Services/
 │   │   ├── BrokerSwitcher.cs       # Strategy context — hot-swaps publishers
 │   │   └── EventLogStore.cs        # In-memory list of processed events
@@ -151,9 +152,10 @@ EventDrivenDemo/
 │   ├── Controllers/
 │   │   └── InvoiceController.cs    # GET /api/invoices/logs
 │   ├── Messaging/
-│   │   └── InvoiceKafkaConsumer.cs # BackgroundService — polling loop
+│   │   └── InvoiceConsumerRouter.cs # BackgroundService — routes to Kafka/AWS/GCP consumer at runtime
 │   ├── Services/
-│   │   └── InvoiceEventLogStore.cs
+│   │   ├── InvoiceEventLogStore.cs
+│   │   └── ConsumerControlState.cs  # Pause/resume for fault tolerance demo
 │   ├── Hubs/
 │   │   └── EventHub.cs
 │   └── Program.cs
@@ -162,7 +164,7 @@ EventDrivenDemo/
 │   ├── Controllers/
 │   │   └── NotificationController.cs
 │   ├── Messaging/
-│   │   └── NotificationKafkaConsumer.cs
+│   │   └── NotificationConsumerRouter.cs # BackgroundService — routes to Kafka/AWS/GCP consumer at runtime
 │   ├── Services/
 │   │   └── NotificationEventLogStore.cs
 │   ├── Hubs/
@@ -206,19 +208,19 @@ EventDrivenDemo/
 ### Apache Kafka (fully implemented)
 
 - **Publisher:** `KafkaPublisher` — uses `Confluent.Kafka` `IProducer` to send JSON-serialized events to a topic. Message headers are attached as Kafka `Headers` (byte arrays).
-- **Consumer:** `InvoiceKafkaConsumer` / `NotificationKafkaConsumer` — `BackgroundService` running a `while` loop. Uses `AutoOffsetReset.Earliest` so messages are replayed from the beginning if the consumer was offline. Kafka retains messages; consumers track their own offsets via **Consumer Groups**.
+- **Consumer:** `InvoiceConsumerRouter` / `NotificationConsumerRouter` — `BackgroundService` running a `while` loop. Uses `AutoOffsetReset.Earliest` so messages are replayed from the beginning if the consumer was offline. Kafka retains messages; consumers track their own offsets via **Consumer Groups**.
 - **Key architectural note:** Kafka never deletes a message after it is consumed. The consumer's position (offset) is what determines what has and hasn't been processed. This enables fault tolerance and replay.
 
-### AWS SNS + SQS (stub — Phase 8)
+### AWS SNS + SQS (fully implemented)
 
-- **Publisher:** Would call `AmazonSNSClient.PublishAsync()` with message attributes for routing.
-- **Consumer:** Would poll `AmazonSQSClient.ReceiveMessageAsync()` and **must call `DeleteMessageAsync` after processing**. Without deletion, SQS re-delivers the message after the Visibility Timeout expires.
+- **Publisher:** `AwsSnsPublisher` calls `AmazonSNSClient.PublishAsync()` with message attributes (e.g. `CustomerTier`) attached as SNS `MessageAttributeValue` objects for routing.
+- **Consumer:** `InvoiceConsumerRouter` / `NotificationConsumerRouter` poll `AmazonSQSClient.ReceiveMessageAsync()` and **must call `DeleteMessageAsync` after processing**. Without deletion, SQS re-delivers the message after the Visibility Timeout expires. The SNS envelope is unwrapped before deserializing the payload.
 - **Fan-out topology:** One SNS Topic → two SQS Queues (one per downstream service). SNS handles the fan-out automatically.
 
-### Google Cloud Pub/Sub (stub — Phase 8)
+### Google Cloud Pub/Sub (fully implemented)
 
-- **Publisher:** Would call `PublisherClient.PublishAsync()`. Message attributes map directly to `PubsubMessage.Attributes`.
-- **Consumer:** Uses event-driven `SubscriberClient`. Instead of writing a polling loop, you provide a handler function. The SDK calls it for each message and expects either `Reply.Ack` (success) or `Reply.Nack` (failure — will be redelivered).
+- **Publisher:** `GcpPublisher` calls `PublisherClient.PublishAsync()`. Message attributes (e.g. `CustomerTier`) map directly to `PubsubMessage.Attributes` — readable by subscribers without deserializing the payload.
+- **Consumer:** `InvoiceConsumerRouter` / `NotificationConsumerRouter` use the event-driven `SubscriberClient`. Instead of writing a polling loop, a handler function is provided to the SDK. The SDK calls it for each message and expects either `Reply.Ack` (success — message removed) or `Reply.Nack` (failure — message redelivered after ack deadline).
 - **Key architectural note:** This is fundamentally different from the Kafka `while` loop — the SDK drives the loop, not your code.
 
 ---
@@ -248,12 +250,12 @@ When a user places an order, the following happens:
 
 5. All consumers subscribed to the topic receive the event in parallel:
 
-   InvoiceKafkaConsumer:
+   InvoiceConsumerRouter (active broker's consume loop):
    → Reads CustomerTier from headers (no deserialization needed for routing)
    → Generates invoice number: "INV-A1B2C3D4"
    → Broadcasts to SignalR: "[InvoiceApi] Invoice generated — INV-A1B2C3D4 | ..."
 
-   NotificationKafkaConsumer:
+   NotificationConsumerRouter (active broker's consume loop):
    → Reads CustomerTier from headers
    → VIP: sends "SMS + Email" / Standard: sends "Email"
    → Broadcasts to SignalR: "[NotificationApi] Notification sent via SMS + Email | ..."
